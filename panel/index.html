@@ -1,0 +1,1595 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    padding: 10px 12px 24px;
+    font: 13px/1.4 system-ui, -apple-system, sans-serif;
+    color: var(--orca-foreground);
+    background: var(--orca-background);
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--orca-ring);
+    outline-offset: 1px;
+  }
+
+  .ctx {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .ctx select, .ctx input, .field input, .field select, .field textarea {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+    color: var(--orca-foreground);
+    font-size: 12px;
+  }
+  .ctx #profile { width: 100%; }
+  .ctx #region { width: 100%; }
+  .combo { position: relative; }
+  .combo.profile-wrap { flex: 1 1 140px; min-width: 110px; }
+  .combo.region-wrap { flex: 0 1 120px; min-width: 90px; }
+  .combo-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-popover, var(--orca-card));
+    color: var(--orca-popover-foreground, var(--orca-foreground));
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .combo-opt {
+    width: 100%;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    text-align: left;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .combo-opt:hover, .combo-opt[aria-selected="true"] {
+    background: var(--orca-accent);
+    color: var(--orca-accent-foreground);
+  }
+
+  .btn {
+    padding: 4px 9px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: transparent;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--orca-accent); color: var(--orca-accent-foreground); }
+  .btn.primary {
+    background: var(--orca-primary);
+    color: var(--orca-primary-foreground);
+    border-color: var(--orca-primary);
+  }
+  .btn.danger {
+    color: hsl(0 78% 60%);
+    border-color: hsl(0 65% 48% / .55);
+  }
+  .btn.danger:hover:not(:disabled) { background: hsl(0 70% 45% / .16); }
+  .btn.sm { padding: 2px 7px; font-size: 11px; }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+    font-size: 11.5px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--orca-muted-foreground); }
+  .dot.ok { background: hsl(145 55% 45%); }
+  .dot.warn { background: hsl(35 90% 52%); }
+  .dot.err { background: hsl(0 75% 58%); }
+  .status-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--orca-border);
+    margin-bottom: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: var(--orca-background);
+    padding-top: 2px;
+  }
+  .tabs button {
+    flex: 1;
+    padding: 6px 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--orca-muted-foreground);
+    font-weight: 500;
+  }
+  .tabs button[aria-selected="true"] {
+    color: var(--orca-foreground);
+    font-weight: 600;
+    border-bottom-color: var(--orca-primary);
+  }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .toolbar input {
+    flex: 1;
+    min-width: 110px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+    font-size: 12px;
+  }
+
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .crumbs button {
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--orca-primary);
+  }
+  .crumbs button:hover { background: var(--orca-accent); }
+  .crumbs span.sep { color: var(--orca-muted-foreground); }
+
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .card {
+    padding: 8px 10px;
+    border-radius: var(--orca-radius, 8px);
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+  }
+  .row.clickable { cursor: pointer; }
+  .row.clickable:hover { background: var(--orca-accent); }
+  .row-main { flex: 1; min-width: 0; }
+  .row-title { font-weight: 600; font-size: 12.5px; overflow-wrap: anywhere; }
+  .row-sub { font-size: 11px; color: var(--orca-muted-foreground); overflow-wrap: anywhere; }
+  .row-actions { display: flex; gap: 4px; flex: none; flex-wrap: wrap; }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    border: 1px solid currentColor;
+  }
+  .pill.ok { color: hsl(145 55% 45%); }
+  .pill.warn { color: hsl(35 90% 52%); }
+  .pill.err { color: hsl(0 75% 58%); }
+  .pill.mut { color: var(--orca-muted-foreground); }
+
+  .grid-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 8px 0;
+  }
+  .stat {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-background);
+    text-align: center;
+  }
+  .stat b { display: block; font-size: 15px; }
+  .stat span { font-size: 10.5px; color: var(--orca-muted-foreground); }
+
+  .form-box {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 11px; color: var(--orca-muted-foreground); }
+  .field textarea { min-height: 76px; resize: vertical; font-family: ui-monospace, monospace; font-size: 11.5px; }
+
+  .code-box {
+    margin: 6px 0;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-background);
+    font: 11.5px/1.4 ui-monospace, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .banner {
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    border: 1px solid var(--orca-border);
+    background: var(--orca-card);
+  }
+  .banner.err { border-color: hsl(0 70% 50% / .6); color: hsl(0 78% 66%); }
+  .banner.ok { border-color: hsl(145 55% 42% / .6); color: hsl(145 55% 52%); }
+  .banner.confirm { border-color: hsl(35 90% 52% / .8); background: hsl(35 90% 52% / .1); }
+  .banner-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+  .muted { color: var(--orca-muted-foreground); font-size: 12px; }
+  .section-title {
+    margin: 12px 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--orca-muted-foreground);
+  }
+  .row.active {
+    border-color: var(--orca-primary);
+    background: var(--orca-accent);
+  }
+  .split {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .split-master, .split-detail { min-width: 0; }
+  @media (min-width: 700px) {
+    body { padding: 16px 22px 32px; }
+    .split {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .split-master {
+      position: sticky;
+      top: 44px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .code-box { max-height: 460px; }
+    .tabs button { flex: 0 0 auto; padding: 6px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="ctx">
+  <div class="combo profile-wrap">
+    <input id="profile" autocomplete="off" placeholder="perfil (--profile)" title="Perfil AWS (--profile)" />
+    <div id="profile-menu" class="combo-menu" hidden></div>
+  </div>
+  <div class="combo region-wrap">
+    <input id="region" autocomplete="off" placeholder="região" title="Região AWS (--region)" />
+    <div id="region-menu" class="combo-menu" hidden></div>
+  </div>
+  <button id="btn-refresh" class="btn" title="Atualizar conexão e aba atual">Atualizar</button>
+  <button id="btn-lang" class="btn" title="Alternar idioma / Switch language">PT-BR</button>
+</div>
+
+<div class="status-bar" id="status-bar">
+  <span class="dot" id="status-dot"></span>
+  <span class="status-text" id="status-text">Verificando AWS CLI…</span>
+  <span id="loading-pill" class="pill warn" hidden>Carregando…</span>
+  <button id="btn-sso" class="btn sm" hidden>SSO Login</button>
+</div>
+
+<div id="confirm-box" class="banner confirm" hidden>
+  <div id="confirm-msg"></div>
+  <div class="banner-actions">
+    <button id="confirm-yes" class="btn sm danger">Confirmar</button>
+    <button id="confirm-no" class="btn sm">Cancelar</button>
+  </div>
+</div>
+
+<div id="feedback" class="banner" hidden></div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" data-tab="s3" aria-selected="true">S3</button>
+  <button role="tab" data-tab="emr" aria-selected="false">EMR</button>
+  <button role="tab" data-tab="sqs" aria-selected="false">SQS</button>
+</div>
+
+<main id="view"></main>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const view = $('view')
+const profileEl = $('profile')
+const regionEl = $('region')
+const statusDot = $('status-dot')
+const statusText = $('status-text')
+const btnSso = $('btn-sso')
+const feedbackEl = $('feedback')
+const confirmBox = $('confirm-box')
+const confirmMsg = $('confirm-msg')
+
+const I18N = {
+  'pt-BR': {
+    profilePlaceholder: 'perfil (--profile)',
+    profileTitle: 'Perfil AWS (--profile)',
+    regionPlaceholder: 'região',
+    regionTitle: 'Região AWS (--region)',
+    refresh: 'Atualizar',
+    refreshTitle: 'Atualizar conexão e aba atual',
+    langToggleTitle: 'Alternar idioma (Português / English)',
+    checkingCli: 'Verificando AWS CLI…',
+    loading: 'Carregando…',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    disconnected: 'Desconectado',
+    accountLabel: 'Conta {account} — {arn}',
+    ssoOpening: 'Abrindo login AWS SSO no navegador…',
+    ssoDone: 'SSO Login concluído!',
+    connectHint: 'Conecte o AWS CLI (perfil/SSO ou credenciais locais) e clique em Atualizar. Se o binário estiver no WSL ou em outro caminho, ajuste em Settings → Plugins → AWS Explorer.',
+    s3Filter: 'Filtrar buckets…',
+    s3NoBuckets: 'Nenhum bucket encontrado.',
+    s3CreatedAt: 'Criado em {date}',
+    s3EmptyHint: 'Selecione um bucket à esquerda para explorar objetos, fazer preview, gerar URL assinada ou enviar arquivos.',
+    s3Buckets: 'Buckets',
+    s3CloseUpload: 'Fechar envio',
+    s3UploadBtn: '+ Enviar texto/JSON',
+    s3SendTo: 'Enviar para S3',
+    s3Uploaded: 'Enviado s3://{bucket}/{key}',
+    s3Key: 'Chave (Key)',
+    s3KeyPlaceholder: '{prefix}arquivo.json',
+    s3ContentType: 'Content-Type',
+    s3ContentTypePlaceholder: 'application/json (opcional)',
+    s3Content: 'Conteúdo',
+    s3ContentPlaceholder: 'Conteúdo do objeto…',
+    s3PresignedTitle: 'URL assinada ({key})',
+    s3CopyUrl: 'Copiar URL',
+    s3Copied: 'URL copiada para a área de transferência.',
+    s3Close: 'Fechar',
+    s3SaveAs: 'Salvar como…',
+    s3View: 'Ver',
+    s3Presign: 'Presign',
+    s3Delete: 'Excluir',
+    s3ConfirmDelete: 'Excluir permanentemente s3://{bucket}/{key}?',
+    s3Deleted: 'Objeto removido: {key}',
+    s3EmptyPrefix: 'Prefixo vazio.',
+    s3Truncated: 'Mostrando os primeiros 100 itens.',
+    emrActive: 'Ativos',
+    emrAll: 'Todos',
+    emrNoClusters: 'Nenhum cluster EMR encontrado.',
+    emrClusterSub: '{id} · criado {date} · {hours}h norm.',
+    emrEmptyHint: 'Selecione um cluster EMR à esquerda para ver detalhes, acompanhar steps, adicionar ou cancelar execuções.',
+    emrBack: '← Clusters EMR',
+    emrNoApps: 'sem apps',
+    emrReason: 'Motivo: {reason}',
+    emrCloseForm: 'Fechar form',
+    emrAddStep: '+ Adicionar Step',
+    emrTerminate: 'Encerrar Cluster',
+    emrProtected: 'Cluster com TerminationProtection ativa',
+    emrTerminateTitle: 'Encerrar cluster EMR',
+    emrConfirmTerminate: 'Encerrar o cluster EMR {name} ({id})? Esta ação interrompe o cluster.',
+    emrTerminated: 'Encerramento solicitado para {id}',
+    emrStepName: 'Nome',
+    emrStepNamePh: 'Nome do step (ex.: spark-etl)',
+    emrStepArgs: 'Argumentos',
+    emrStepAction: 'Action on failure',
+    emrSendStep: 'Enviar Step',
+    emrStepAdded: 'Step adicionado: {ids}',
+    emrStepsTitle: 'Steps ({count})',
+    emrStepError: 'Erro: {reason}',
+    emrCancelStep: 'Cancelar',
+    emrConfirmCancelStep: 'Cancelar step {name} ({id})?',
+    emrStepCanceled: 'Cancelamento enviado para {id}',
+    emrNoSteps: 'Nenhum step neste cluster.',
+    sqsFilterPh: 'Filtrar por prefixo da fila…',
+    sqsSearch: 'Buscar',
+    sqsNoQueues: 'Nenhuma fila SQS encontrada.',
+    sqsEmptyHint: 'Selecione uma fila SQS à esquerda para ver contadores, espiar mensagens, enviar ou purgar.',
+    sqsBack: '← Filas SQS',
+    sqsVisible: 'Visíveis',
+    sqsInFlight: 'Em voo',
+    sqsDelayed: 'Atrasadas',
+    sqsMeta: 'Visibility: {vis}s · Retenção: {ret}d{dlq}',
+    sqsPeek: 'Espiar mensagens',
+    sqsNoMessages: 'Nenhuma mensagem disponível no momento.',
+    sqsCloseSend: 'Fechar envio',
+    sqsSendBtn: '+ Enviar mensagem',
+    sqsPurge: 'Purgar fila',
+    sqsConfirmPurge: 'Purgar TODAS as mensagens da fila {name}? Esta ação não pode ser desfeita.',
+    sqsPurged: 'Fila purgada: {name}',
+    sqsBodyLabel: 'Body da mensagem',
+    sqsGroupPh: 'MessageGroupId (obrigatório em FIFO)',
+    sqsDedupPh: 'MessageDeduplicationId (opcional)',
+    sqsDelayLabel: 'Delay (segundos)',
+    sqsDelayPh: 'Delay segundos (0-900)',
+    sqsSendSubmit: 'Enviar para SQS',
+    sqsSent: 'Mensagem enviada (ID: {id})',
+    sqsMessagesTitle: 'Mensagens ({count})',
+    sqsMsgMeta: 'Enviada: {date} · Recebimentos: {rc}{group}',
+    sqsMsgGroup: ' · Grupo: {group}',
+    sqsConfirmDeleteMsg: 'Excluir a mensagem {id} da fila?',
+    sqsDeletedMsg: 'Mensagem {id} excluída.'
+  },
+  en: {
+    profilePlaceholder: 'profile (--profile)',
+    profileTitle: 'AWS Profile (--profile)',
+    regionPlaceholder: 'region',
+    regionTitle: 'AWS Region (--region)',
+    refresh: 'Refresh',
+    refreshTitle: 'Refresh connection and current tab',
+    langToggleTitle: 'Switch language (English / Português)',
+    checkingCli: 'Checking AWS CLI…',
+    loading: 'Loading…',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    disconnected: 'Disconnected',
+    accountLabel: 'Account {account} — {arn}',
+    ssoOpening: 'Opening AWS SSO login in browser…',
+    ssoDone: 'SSO Login complete!',
+    connectHint: 'Connect your AWS CLI (profile/SSO or local credentials) and click Refresh. If the binary is in WSL or a custom path, configure it in Settings → Plugins → AWS Explorer.',
+    s3Filter: 'Filter buckets…',
+    s3NoBuckets: 'No buckets found.',
+    s3CreatedAt: 'Created {date}',
+    s3EmptyHint: 'Select a bucket on the left to browse objects, preview files, generate presigned URLs, or upload text/JSON.',
+    s3Buckets: 'Buckets',
+    s3CloseUpload: 'Close upload',
+    s3UploadBtn: '+ Upload text/JSON',
+    s3SendTo: 'Upload to S3',
+    s3Uploaded: 'Uploaded s3://{bucket}/{key}',
+    s3Key: 'Key',
+    s3KeyPlaceholder: '{prefix}file.json',
+    s3ContentType: 'Content-Type',
+    s3ContentTypePlaceholder: 'application/json (optional)',
+    s3Content: 'Content',
+    s3ContentPlaceholder: 'Object content…',
+    s3PresignedTitle: 'Presigned URL ({key})',
+    s3CopyUrl: 'Copy URL',
+    s3Copied: 'URL copied to clipboard.',
+    s3Close: 'Close',
+    s3SaveAs: 'Save as…',
+    s3View: 'View',
+    s3Presign: 'Presign',
+    s3Delete: 'Delete',
+    s3ConfirmDelete: 'Permanently delete s3://{bucket}/{key}?',
+    s3Deleted: 'Object deleted: {key}',
+    s3EmptyPrefix: 'Empty prefix.',
+    s3Truncated: 'Showing the first 100 items.',
+    emrActive: 'Active',
+    emrAll: 'All',
+    emrNoClusters: 'No EMR clusters found.',
+    emrClusterSub: '{id} · created {date} · {hours}h norm.',
+    emrEmptyHint: 'Select an EMR cluster on the left to inspect details, track steps, or add/cancel runs.',
+    emrBack: '← EMR Clusters',
+    emrNoApps: 'no apps',
+    emrReason: 'Reason: {reason}',
+    emrCloseForm: 'Close form',
+    emrAddStep: '+ Add Step',
+    emrTerminate: 'Terminate Cluster',
+    emrProtected: 'Cluster has TerminationProtection enabled',
+    emrTerminateTitle: 'Terminate EMR cluster',
+    emrConfirmTerminate: 'Terminate EMR cluster {name} ({id})? This action stops the cluster.',
+    emrTerminated: 'Termination requested for {id}',
+    emrStepName: 'Name',
+    emrStepNamePh: 'Step name (e.g. spark-etl)',
+    emrStepArgs: 'Arguments',
+    emrStepAction: 'Action on failure',
+    emrSendStep: 'Submit Step',
+    emrStepAdded: 'Step added: {ids}',
+    emrStepsTitle: 'Steps ({count})',
+    emrStepError: 'Error: {reason}',
+    emrCancelStep: 'Cancel',
+    emrConfirmCancelStep: 'Cancel step {name} ({id})?',
+    emrStepCanceled: 'Cancellation requested for {id}',
+    emrNoSteps: 'No steps in this cluster.',
+    sqsFilterPh: 'Filter by queue prefix…',
+    sqsSearch: 'Search',
+    sqsNoQueues: 'No SQS queues found.',
+    sqsEmptyHint: 'Select an SQS queue on the left to inspect counts, peek messages, send, or purge.',
+    sqsBack: '← SQS Queues',
+    sqsVisible: 'Visible',
+    sqsInFlight: 'In flight',
+    sqsDelayed: 'Delayed',
+    sqsMeta: 'Visibility: {vis}s · Retention: {ret}d{dlq}',
+    sqsPeek: 'Peek messages',
+    sqsNoMessages: 'No messages available right now.',
+    sqsCloseSend: 'Close form',
+    sqsSendBtn: '+ Send message',
+    sqsPurge: 'Purge queue',
+    sqsConfirmPurge: 'Purge ALL messages from queue {name}? This action cannot be undone.',
+    sqsPurged: 'Queue purged: {name}',
+    sqsBodyLabel: 'Message body',
+    sqsGroupPh: 'MessageGroupId (required for FIFO)',
+    sqsDedupPh: 'MessageDeduplicationId (optional)',
+    sqsDelayLabel: 'Delay (seconds)',
+    sqsDelayPh: 'Delay seconds (0-900)',
+    sqsSendSubmit: 'Send to SQS',
+    sqsSent: 'Message sent (ID: {id})',
+    sqsMessagesTitle: 'Messages ({count})',
+    sqsMsgMeta: 'Sent: {date} · Receives: {rc}{group}',
+    sqsMsgGroup: ' · Group: {group}',
+    sqsConfirmDeleteMsg: 'Delete message {id} from the queue?',
+    sqsDeletedMsg: 'Message {id} deleted.'
+  }
+}
+
+function resolveLang(setting) {
+  if (setting === 'pt-BR' || setting === 'en') return setting
+  const loc = String((window.orca && orca.locale) || navigator.language || '').toLowerCase()
+  return loc.startsWith('pt') ? 'pt-BR' : 'en'
+}
+
+function t(key, vars = {}) {
+  const dict = I18N[state.lang] || I18N['pt-BR']
+  let s = dict[key] ?? I18N['pt-BR'][key] ?? key
+  for (const [k, v] of Object.entries(vars)) s = s.replaceAll('{' + k + '}', String(v ?? ''))
+  return s
+}
+
+function applyStaticI18n() {
+  document.documentElement.lang = state.lang
+  profileEl.placeholder = t('profilePlaceholder')
+  profileEl.title = t('profileTitle')
+  regionEl.placeholder = t('regionPlaceholder')
+  regionEl.title = t('regionTitle')
+  $('btn-refresh').textContent = t('refresh')
+  $('btn-refresh').title = t('refreshTitle')
+  $('btn-lang').textContent = state.lang === 'pt-BR' ? 'PT-BR' : 'EN'
+  $('btn-lang').title = t('langToggleTitle')
+  $('loading-pill').textContent = t('loading')
+  $('confirm-yes').textContent = t('confirm')
+  $('confirm-no').textContent = t('cancel')
+  if (state.lastStatus) updateStatusDisplay(state.lastStatus)
+}
+
+const state = {
+  lang: resolveLang('auto'),
+  lastStatus: null,
+  tab: 's3',
+  profile: '',
+  region: '',
+  connected: false,
+  loading: false,
+  s3: {
+    buckets: [],
+    filter: '',
+    bucket: null,
+    prefix: '',
+    folders: [],
+    objects: [],
+    truncated: false,
+    preview: null,
+    presigned: null,
+    showUpload: false
+  },
+  emr: {
+    onlyActive: true,
+    clusters: [],
+    selectedId: null,
+    detail: null,
+    steps: [],
+    showAddStep: false
+  },
+  sqs: {
+    prefix: '',
+    queues: [],
+    selectedUrl: null,
+    attrs: null,
+    messages: [],
+    showSend: false
+  }
+}
+
+let pendingConfirm = null
+
+function showFeedback(msg, kind = 'ok') {
+  if (!msg) { feedbackEl.hidden = true; return }
+  feedbackEl.className = 'banner ' + kind
+  feedbackEl.textContent = msg
+  feedbackEl.hidden = false
+}
+
+function askConfirm(message, onConfirm) {
+  pendingConfirm = onConfirm
+  confirmMsg.textContent = message
+  confirmBox.hidden = false
+  confirmBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+$('confirm-no').addEventListener('click', () => {
+  pendingConfirm = null
+  confirmBox.hidden = true
+})
+$('confirm-yes').addEventListener('click', async () => {
+  const fn = pendingConfirm
+  pendingConfirm = null
+  confirmBox.hidden = true
+  if (fn) await fn()
+})
+
+async function req(name, input = {}) {
+  const payload = { ...input }
+  if (state.profile) payload.profile = state.profile
+  if (state.region) payload.region = state.region
+  return await orca.plugin.request(name, payload)
+}
+
+function fmtBytes(n) {
+  if (!Number.isFinite(n) || n < 0) return '-'
+  if (n < 1024) return n + ' B'
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB'
+  return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+}
+
+function fmtDate(iso) {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString(state.lang === 'en' ? 'en-US' : 'pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function stateTone(s) {
+  const u = String(s || '').toUpperCase()
+  if (['RUNNING', 'WAITING', 'COMPLETED'].includes(u)) return 'ok'
+  if (['STARTING', 'BOOTSTRAPPING', 'PENDING', 'CANCEL_PENDING'].includes(u)) return 'warn'
+  if (['FAILED', 'TERMINATED_WITH_ERRORS', 'INTERRUPTED'].includes(u)) return 'err'
+  return 'mut'
+}
+
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === undefined || v === null || v === false) continue
+    if (k === 'class') node.className = v
+    else if (k === 'text') node.textContent = String(v)
+    else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v)
+    else node.setAttribute(k, v === true ? '' : String(v))
+  }
+  for (const c of children) {
+    if (c === null || c === undefined || c === false) continue
+    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)
+  }
+  return node
+}
+
+const COMMON_REGIONS = ['sa-east-1', 'us-east-1', 'us-east-2', 'us-west-2', 'eu-west-1']
+let profileOptions = []
+
+function bindCombo(inputEl, menuEl, getOptions, onSelect) {
+  function renderMenu(filterText) {
+    const q = String(filterText || '').trim().toLowerCase()
+    const opts = getOptions().filter((o) => !q || o.toLowerCase().includes(q))
+    menuEl.innerHTML = ''
+    if (!opts.length) { menuEl.hidden = true; return }
+    for (const val of opts) {
+      menuEl.appendChild(el('button', {
+        type: 'button',
+        class: 'combo-opt',
+        text: val,
+        'aria-selected': String(val === inputEl.value.trim()),
+        onmousedown: (e) => {
+          e.preventDefault()
+          inputEl.value = val
+          menuEl.hidden = true
+          onSelect(val)
+        }
+      }))
+    }
+    menuEl.hidden = false
+  }
+  inputEl.addEventListener('focus', () => renderMenu(''))
+  inputEl.addEventListener('click', () => renderMenu(''))
+  inputEl.addEventListener('input', () => renderMenu(inputEl.value))
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { menuEl.hidden = true }
+    else if (e.key === 'Enter') { menuEl.hidden = true; onSelect(inputEl.value.trim()) }
+  })
+  inputEl.addEventListener('blur', () => { setTimeout(() => { menuEl.hidden = true }, 120) })
+}
+
+bindCombo(profileEl, $('profile-menu'), () => profileOptions, (val) => {
+  if (val === state.profile) return
+  state.profile = val
+  resetNavigation()
+  checkStatus(true, true)
+})
+
+bindCombo(regionEl, $('region-menu'), () => COMMON_REGIONS, (val) => {
+  if (val === state.region) return
+  state.region = val
+  resetNavigation()
+  checkStatus(true, true)
+})
+
+async function setLanguage(lang) {
+  state.lang = resolveLang(lang)
+  applyStaticI18n()
+  render()
+  try {
+    if (window.orca && orca.settings && typeof orca.settings.set === 'function') {
+      await orca.settings.set('language', state.lang)
+    }
+  } catch { /* ignore */ }
+}
+
+$('btn-lang').addEventListener('click', () => {
+  setLanguage(state.lang === 'pt-BR' ? 'en' : 'pt-BR')
+})
+
+function updateStatusDisplay(res) {
+  if (res.connected && res.identity) {
+    statusDot.className = 'dot ok'
+    statusText.textContent = t('accountLabel', { account: res.identity.account, arn: res.identity.arn })
+    btnSso.hidden = !res.supportsSso
+  } else {
+    statusDot.className = res.errorKind === 'auth' ? 'dot warn' : 'dot err'
+    statusText.textContent = res.error || t('disconnected')
+    btnSso.hidden = !res.supportsSso || res.errorKind === 'not_found'
+  }
+}
+
+async function checkStatus(loadCurrentTab = true, force = false) {
+  statusDot.className = 'dot'
+  statusText.textContent = t('checkingCli')
+  btnSso.hidden = true
+  try {
+    const res = await req('aws.status', { force })
+    // Popula sugestões de perfis preservando escolha atual
+    const current = state.profile || res.profile || ''
+    const seen = new Set()
+    profileOptions = []
+    for (const p of [...(res.profiles || []), current].filter(Boolean)) {
+      if (seen.has(p)) continue
+      seen.add(p)
+      profileOptions.push(p)
+    }
+    profileEl.value = current
+    state.profile = current
+    if (!state.region && res.region) {
+      state.region = res.region
+      regionEl.value = res.region
+    }
+
+    state.lastStatus = res
+    state.connected = Boolean(res.connected)
+    updateStatusDisplay(res)
+    if (res.connected && res.identity) {
+      showFeedback('')
+      if (loadCurrentTab) await loadTabData(force)
+    } else {
+      render()
+    }
+  } catch (err) {
+    state.lastStatus = null
+    state.connected = false
+    statusDot.className = 'dot err'
+    statusText.textContent = err.message || String(err)
+    render()
+  }
+}
+
+btnSso.addEventListener('click', async () => {
+  showFeedback(t('ssoOpening'), 'ok')
+  btnSso.disabled = true
+  try {
+    await req('aws.ssoLogin')
+    showFeedback(t('ssoDone'), 'ok')
+    await checkStatus(true, true)
+  } catch (err) {
+    showFeedback(err.message || String(err), 'err')
+  } finally {
+    btnSso.disabled = false
+  }
+})
+
+profileEl.addEventListener('change', () => {
+  state.profile = profileEl.value.trim()
+  resetNavigation()
+  checkStatus(true)
+})
+
+regionEl.addEventListener('change', () => {
+  state.region = regionEl.value.trim()
+  resetNavigation()
+  checkStatus(true)
+})
+
+$('btn-refresh').addEventListener('click', () => checkStatus(true, true))
+
+document.querySelectorAll('.tabs button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    state.tab = btn.dataset.tab
+    document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b === btn)))
+    showFeedback('')
+    saveUiState()
+    loadTabData()
+  })
+})
+
+function saveUiState() {
+  orca.plugin.request('ui.setState', {
+    tab: state.tab,
+    profile: state.profile,
+    region: state.region,
+    s3Bucket: state.s3.bucket,
+    s3Prefix: state.s3.prefix,
+    s3Filter: state.s3.filter,
+    emrOnlyActive: state.emr.onlyActive,
+    emrSelectedId: state.emr.selectedId,
+    sqsPrefix: state.sqs.prefix,
+    sqsSelectedUrl: state.sqs.selectedUrl
+  }).catch(() => {})
+}
+
+async function restoreUiState() {
+  try {
+    const r = await orca.plugin.request('ui.getState', {})
+    const s = r && r.state && typeof r.state === 'object' ? r.state : {}
+    if (s.tab === 's3' || s.tab === 'emr' || s.tab === 'sqs') {
+      state.tab = s.tab
+      document.querySelectorAll('.tabs button').forEach((b) =>
+        b.setAttribute('aria-selected', String(b.dataset.tab === state.tab))
+      )
+    }
+    if (typeof s.profile === 'string') { state.profile = s.profile; profileEl.value = s.profile }
+    if (typeof s.region === 'string') { state.region = s.region; regionEl.value = s.region }
+    if (typeof s.s3Bucket === 'string' && s.s3Bucket) state.s3.bucket = s.s3Bucket
+    if (typeof s.s3Prefix === 'string') state.s3.prefix = s.s3Prefix
+    if (typeof s.s3Filter === 'string') state.s3.filter = s.s3Filter
+    if (typeof s.emrOnlyActive === 'boolean') state.emr.onlyActive = s.emrOnlyActive
+    if (typeof s.emrSelectedId === 'string' && s.emrSelectedId) state.emr.selectedId = s.emrSelectedId
+    if (typeof s.sqsPrefix === 'string') state.sqs.prefix = s.sqsPrefix
+    if (typeof s.sqsSelectedUrl === 'string' && s.sqsSelectedUrl) state.sqs.selectedUrl = s.sqsSelectedUrl
+  } catch { /* ignore */ }
+}
+
+function resetNavigation() {
+  state.s3.bucket = null; state.s3.prefix = ''; state.s3.preview = null; state.s3.presigned = null
+  state.emr.selectedId = null; state.emr.detail = null; state.emr.steps = []
+  state.sqs.selectedUrl = null; state.sqs.attrs = null; state.sqs.messages = []
+  saveUiState()
+}
+
+async function loadTabData(force = false) {
+  if (!state.connected) { render(); return }
+  state.loading = true
+  render()
+  try {
+    if (state.tab === 's3') {
+      const [bucketsRes] = await Promise.all([
+        req('s3.listBuckets', { force }),
+        state.s3.bucket ? loadS3Objects(state.s3.bucket, state.s3.prefix, force) : Promise.resolve()
+      ])
+      state.s3.buckets = bucketsRes.buckets || []
+    } else if (state.tab === 'emr') {
+      const [clustersRes] = await Promise.all([
+        req('emr.listClusters', { onlyActive: state.emr.onlyActive }),
+        state.emr.selectedId ? loadEmrDetail(state.emr.selectedId) : Promise.resolve()
+      ])
+      state.emr.clusters = clustersRes.clusters || []
+    } else if (state.tab === 'sqs') {
+      const [queuesRes] = await Promise.all([
+        req('sqs.listQueues', { prefix: state.sqs.prefix }),
+        state.sqs.selectedUrl ? loadSqsDetail(state.sqs.selectedUrl) : Promise.resolve()
+      ])
+      state.sqs.queues = queuesRes.queues || []
+    }
+  } catch (err) {
+    showFeedback(err.message || String(err), 'err')
+  } finally {
+    state.loading = false
+    render()
+  }
+}
+
+// --- S3 loaders ---
+async function loadS3Objects(bucket, prefix = '', force = false) {
+  state.s3.bucket = bucket
+  state.s3.prefix = prefix
+  state.s3.preview = null
+  state.s3.presigned = null
+  saveUiState()
+  const r = await req('s3.listObjects', { bucket, prefix, force })
+  state.s3.folders = r.folders || []
+  state.s3.objects = r.objects || []
+  state.s3.truncated = Boolean(r.truncated)
+}
+
+// --- EMR loaders ---
+async function loadEmrDetail(clusterId) {
+  state.emr.selectedId = clusterId
+  saveUiState()
+  const [d, s] = await Promise.all([
+    req('emr.describeCluster', { clusterId }),
+    req('emr.listSteps', { clusterId })
+  ])
+  state.emr.detail = d.cluster
+  state.emr.steps = s.steps || []
+}
+
+// --- SQS loaders ---
+async function loadSqsDetail(queueUrl) {
+  state.sqs.selectedUrl = queueUrl
+  saveUiState()
+  const r = await req('sqs.getAttributes', { queueUrl })
+  state.sqs.attrs = r.attributes
+}
+
+// --- Render ---
+let out = view
+let lastWide = window.innerWidth >= 700
+function isWide() { return window.innerWidth >= 700 }
+
+window.addEventListener('resize', () => {
+  const nowWide = isWide()
+  if (nowWide !== lastWide) {
+    lastWide = nowWide
+    render()
+  }
+})
+
+function renderSplit(hasSelection, renderMaster, renderDetail, emptyHint) {
+  if (!isWide()) {
+    out = view
+    if (!hasSelection) renderMaster()
+    else renderDetail()
+    return
+  }
+  const master = el('div', { class: 'split-master' })
+  const detail = el('div', { class: 'split-detail' })
+  out = master
+  renderMaster()
+  out = detail
+  if (hasSelection) renderDetail()
+  else detail.appendChild(el('div', { class: 'card muted', text: emptyHint }))
+  out = view
+  view.appendChild(el('div', { class: 'split' }, [master, detail]))
+}
+
+function render() {
+  const prevMaster = view.querySelector('.split-master')
+  const prevScroll = prevMaster ? prevMaster.scrollTop : 0
+  const loadingPill = $('loading-pill')
+  if (loadingPill) loadingPill.hidden = !state.loading
+
+  view.innerHTML = ''
+  out = view
+  if (!state.connected) {
+    view.appendChild(el('p', { class: 'muted', text: t('connectHint') }))
+    return
+  }
+  if (state.tab === 's3') renderS3()
+  else if (state.tab === 'emr') renderEmr()
+  else renderSqs()
+
+  const newMaster = view.querySelector('.split-master')
+  if (newMaster && prevScroll > 0) newMaster.scrollTop = prevScroll
+}
+
+function renderS3() {
+  renderSplit(
+    Boolean(state.s3.bucket),
+    () => {
+      const list = el('div', { class: 'list' })
+      const emptyMsg = el('p', { class: 'muted', text: t('s3NoBuckets'), hidden: true })
+      const applyFilter = () => {
+        const q = state.s3.filter.trim().toLowerCase()
+        let visible = 0
+        for (const row of list.children) {
+          const match = !q || (row.dataset.name || '').includes(q)
+          row.hidden = !match
+          if (match) visible++
+        }
+        emptyMsg.hidden = visible > 0 || state.loading
+      }
+      const filterInput = el('input', {
+        placeholder: t('s3Filter'),
+        value: state.s3.filter,
+        oninput: (e) => { state.s3.filter = e.target.value; applyFilter() }
+      })
+      out.appendChild(el('div', { class: 'toolbar' }, [filterInput]))
+      for (const b of state.s3.buckets) {
+        const row = el('div', {
+          class: 'row clickable' + (state.s3.bucket === b.name ? ' active' : ''),
+          onclick: async () => {
+            state.loading = true; render()
+            try { await loadS3Objects(b.name, '') } catch (e) { showFeedback(e.message, 'err') }
+            finally { state.loading = false; render() }
+          }
+        }, [
+          el('div', { class: 'row-main' }, [
+            el('div', { class: 'row-title', text: b.name }),
+            el('div', { class: 'row-sub', text: t('s3CreatedAt', { date: fmtDate(b.createdAt) }) })
+          ])
+        ])
+        row.dataset.name = b.name.toLowerCase()
+        list.appendChild(row)
+      }
+      applyFilter()
+      out.appendChild(emptyMsg)
+      out.appendChild(list)
+    },
+    () => {
+      renderS3Detail()
+    },
+    t('s3EmptyHint')
+  )
+}
+
+function renderS3Detail() {
+
+  // Breadcrumbs
+  const crumbs = el('div', { class: 'crumbs' }, [
+    el('button', { text: t('s3Buckets'), onclick: () => { state.s3.bucket = null; state.s3.prefix = ''; loadTabData() } }),
+    el('span', { class: 'sep', text: '/' }),
+    el('button', { text: state.s3.bucket, onclick: async () => {
+      state.loading = true; render()
+      try { await loadS3Objects(state.s3.bucket, '') } finally { state.loading = false; render() }
+    } })
+  ])
+  const parts = state.s3.prefix.split('/').filter(Boolean)
+  let acc = ''
+  for (const p of parts) {
+    acc += p + '/'
+    const target = acc
+    crumbs.appendChild(el('span', { class: 'sep', text: '/' }))
+    crumbs.appendChild(el('button', { text: p, onclick: async () => {
+      state.loading = true; render()
+      try { await loadS3Objects(state.s3.bucket, target) } finally { state.loading = false; render() }
+    } }))
+  }
+  out.appendChild(crumbs)
+
+  // Actions toolbar
+  out.appendChild(el('div', { class: 'toolbar' }, [
+    el('button', {
+      class: 'btn primary',
+      text: state.s3.showUpload ? t('s3CloseUpload') : t('s3UploadBtn'),
+      onclick: () => { state.s3.showUpload = !state.s3.showUpload; render() }
+    })
+  ]))
+
+  if (state.s3.showUpload) {
+    const keyIn = el('input', { placeholder: t('s3KeyPlaceholder', { prefix: state.s3.prefix }), value: state.s3.prefix })
+    const ctIn = el('input', { placeholder: t('s3ContentTypePlaceholder'), value: 'application/json' })
+    const bodyIn = el('textarea', { placeholder: t('s3ContentPlaceholder') })
+    const sendBtn = el('button', {
+      class: 'btn primary',
+      text: t('s3SendTo'),
+      onclick: async () => {
+        sendBtn.disabled = true
+        try {
+          await req('s3.putObjectText', {
+            bucket: state.s3.bucket,
+            key: keyIn.value.trim(),
+            contentType: ctIn.value.trim(),
+            content: bodyIn.value
+          })
+          state.s3.showUpload = false
+          showFeedback(t('s3Uploaded', { bucket: state.s3.bucket, key: keyIn.value.trim() }), 'ok')
+          await loadS3Objects(state.s3.bucket, state.s3.prefix, true)
+          render()
+        } catch (e) { showFeedback(e.message, 'err') }
+        finally { sendBtn.disabled = false }
+      }
+    })
+    out.appendChild(el('div', { class: 'form-box' }, [
+      el('div', { class: 'field' }, [el('label', { text: t('s3Key') }), keyIn]),
+      el('div', { class: 'field' }, [el('label', { text: t('s3ContentType') }), ctIn]),
+      el('div', { class: 'field' }, [el('label', { text: t('s3Content') }), bodyIn]),
+      el('div', { class: 'toolbar' }, [sendBtn])
+    ]))
+  }
+
+  if (state.s3.presigned) {
+    out.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'row-title', text: t('s3PresignedTitle', { key: state.s3.presigned.key }) }),
+      el('div', { class: 'code-box', text: state.s3.presigned.url }),
+      el('div', { class: 'toolbar' }, [
+        el('button', { class: 'btn sm', text: t('s3CopyUrl'), onclick: () => {
+          navigator.clipboard?.writeText(state.s3.presigned.url)
+          showFeedback(t('s3Copied'), 'ok')
+        } }),
+        el('button', { class: 'btn sm', text: t('s3Close'), onclick: () => { state.s3.presigned = null; render() } })
+      ])
+    ]))
+  }
+
+  if (state.s3.preview) {
+    const pv = state.s3.preview
+    out.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'row-title', text: `${pv.key} (${fmtBytes(pv.size)})` }),
+      el('div', { class: 'code-box', text: pv.content }),
+      el('div', { class: 'toolbar' }, [
+        el('button', { class: 'btn sm', text: t('s3SaveAs'), onclick: async () => {
+          const fname = pv.key.split('/').pop() || 'objeto.txt'
+          await orca.files.saveAs({ suggestedName: fname, mimeType: pv.contentType || 'text/plain', data: pv.content })
+        } }),
+        el('button', { class: 'btn sm', text: t('s3Close'), onclick: () => { state.s3.preview = null; render() } })
+      ])
+    ]))
+  }
+
+  const list = el('div', { class: 'list' })
+  for (const folder of state.s3.folders) {
+    const label = folder.slice(state.s3.prefix.length)
+    list.appendChild(el('div', {
+      class: 'row clickable',
+      onclick: async () => {
+        state.loading = true; render()
+        try { await loadS3Objects(state.s3.bucket, folder) } catch (e) { showFeedback(e.message, 'err') }
+        finally { state.loading = false; render() }
+      }
+    }, [
+      el('div', { class: 'row-main' }, [
+        el('div', { class: 'row-title', text: '📁 ' + label })
+      ])
+    ]))
+  }
+
+  for (const obj of state.s3.objects) {
+    list.appendChild(el('div', { class: 'row' }, [
+      el('div', { class: 'row-main' }, [
+        el('div', { class: 'row-title', text: obj.name }),
+        el('div', { class: 'row-sub', text: `${fmtBytes(obj.size)} · ${fmtDate(obj.lastModified)}` })
+      ]),
+      el('div', { class: 'row-actions' }, [
+        el('button', { class: 'btn sm', text: t('s3View'), onclick: async () => {
+          try {
+            state.s3.preview = await req('s3.getObjectText', { bucket: state.s3.bucket, key: obj.key })
+            render()
+          } catch (e) { showFeedback(e.message, 'err') }
+        } }),
+        el('button', { class: 'btn sm', text: t('s3Presign'), onclick: async () => {
+          try {
+            const r = await req('s3.presign', { bucket: state.s3.bucket, key: obj.key, expiresIn: 900 })
+            state.s3.presigned = { key: obj.key, url: r.url }
+            render()
+          } catch (e) { showFeedback(e.message, 'err') }
+        } }),
+        el('button', { class: 'btn sm danger', text: t('s3Delete'), onclick: () => {
+          askConfirm(t('s3ConfirmDelete', { bucket: state.s3.bucket, key: obj.key }), async () => {
+            try {
+              await req('s3.deleteObject', { bucket: state.s3.bucket, key: obj.key })
+              showFeedback(t('s3Deleted', { key: obj.key }), 'ok')
+              await loadS3Objects(state.s3.bucket, state.s3.prefix, true)
+              render()
+            } catch (e) { showFeedback(e.message, 'err') }
+          })
+        } })
+      ])
+    ]))
+  }
+
+  if (!state.s3.folders.length && !state.s3.objects.length && !state.loading) {
+    list.appendChild(el('p', { class: 'muted', text: t('s3EmptyPrefix') }))
+  }
+  if (state.s3.truncated) {
+    list.appendChild(el('p', { class: 'muted', text: t('s3Truncated') }))
+  }
+  out.appendChild(list)
+}
+
+function renderEmr() {
+  renderSplit(
+    Boolean(state.emr.selectedId),
+    () => {
+      out.appendChild(el('div', { class: 'toolbar' }, [
+        el('button', {
+          class: state.emr.onlyActive ? 'btn primary' : 'btn',
+          text: t('emrActive'),
+          onclick: () => { state.emr.onlyActive = true; loadTabData() }
+        }),
+        el('button', {
+          class: !state.emr.onlyActive ? 'btn primary' : 'btn',
+          text: t('emrAll'),
+          onclick: () => { state.emr.onlyActive = false; loadTabData() }
+        })
+      ]))
+
+      if (!state.emr.clusters.length && !state.loading) {
+        out.appendChild(el('p', { class: 'muted', text: t('emrNoClusters') }))
+        return
+      }
+      const list = el('div', { class: 'list' })
+      for (const c of state.emr.clusters) {
+        list.appendChild(el('div', {
+          class: 'row clickable' + (state.emr.selectedId === c.id ? ' active' : ''),
+          onclick: async () => {
+            state.loading = true; render()
+            try { await loadEmrDetail(c.id) } catch (e) { showFeedback(e.message, 'err') }
+            finally { state.loading = false; render() }
+          }
+        }, [
+          el('div', { class: 'row-main' }, [
+            el('div', { class: 'row-title', text: c.name || c.id }),
+            el('div', { class: 'row-sub', text: t('emrClusterSub', { id: c.id, date: fmtDate(c.createdAt), hours: c.normalizedHours }) })
+          ]),
+          el('span', { class: 'pill ' + stateTone(c.state), text: c.state })
+        ]))
+      }
+      out.appendChild(list)
+    },
+    () => {
+      renderEmrDetail()
+    },
+    t('emrEmptyHint')
+  )
+}
+
+function renderEmrDetail() {
+
+  const d = state.emr.detail
+  out.appendChild(el('div', { class: 'crumbs' }, [
+    el('button', { text: t('emrBack'), onclick: () => { state.emr.selectedId = null; state.emr.detail = null; loadTabData() } })
+  ]))
+
+  if (d) {
+    const canTerminate = !['TERMINATED', 'TERMINATED_WITH_ERRORS', 'TERMINATING'].includes(d.state)
+    out.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'toolbar' }, [
+        el('div', { class: 'row-main' }, [
+          el('div', { class: 'row-title', text: `${d.name} (${d.id})` }),
+          el('div', { class: 'row-sub', text: `${d.releaseLabel || '-'} · ${d.applications.join(', ') || t('emrNoApps')}` })
+        ]),
+        el('span', { class: 'pill ' + stateTone(d.state), text: d.state })
+      ]),
+      d.masterDns ? el('div', { class: 'row-sub', text: `Master: ${d.masterDns}` }) : null,
+      d.logUri ? el('div', { class: 'row-sub', text: `Logs: ${d.logUri}` }) : null,
+      d.stateReason ? el('div', { class: 'row-sub', text: t('emrReason', { reason: d.stateReason }) }) : null,
+      el('div', { class: 'toolbar', style: 'margin-top:8px;margin-bottom:0' }, [
+        el('button', {
+          class: 'btn sm primary',
+          text: state.emr.showAddStep ? t('emrCloseForm') : t('emrAddStep'),
+          disabled: !canTerminate,
+          onclick: () => { state.emr.showAddStep = !state.emr.showAddStep; render() }
+        }),
+        canTerminate ? el('button', {
+          class: 'btn sm danger',
+          text: t('emrTerminate'),
+          disabled: d.terminationProtected,
+          title: d.terminationProtected ? t('emrProtected') : t('emrTerminateTitle'),
+          onclick: () => {
+            askConfirm(t('emrConfirmTerminate', { name: d.name, id: d.id }), async () => {
+              try {
+                await req('emr.terminateCluster', { clusterId: d.id })
+                showFeedback(t('emrTerminated', { id: d.id }), 'ok')
+                await loadEmrDetail(d.id)
+                render()
+              } catch (e) { showFeedback(e.message, 'err') }
+            })
+          }
+        }) : null
+      ])
+    ]))
+  }
+
+  if (state.emr.showAddStep && d) {
+    const nameIn = el('input', { placeholder: t('emrStepNamePh') })
+    const jarIn = el('input', { value: 'command-runner.jar' })
+    const argsIn = el('textarea', { placeholder: 'spark-submit --deploy-mode cluster s3://bucket/script.py' })
+    const actIn = el('select', {}, [
+      el('option', { value: 'CONTINUE', text: 'CONTINUE' }),
+      el('option', { value: 'CANCEL_AND_WAIT', text: 'CANCEL_AND_WAIT' }),
+      el('option', { value: 'TERMINATE_CLUSTER', text: 'TERMINATE_CLUSTER' })
+    ])
+    const submitBtn = el('button', {
+      class: 'btn primary',
+      text: t('emrSendStep'),
+      onclick: async () => {
+        submitBtn.disabled = true
+        try {
+          const r = await req('emr.addStep', {
+            clusterId: d.id,
+            name: nameIn.value,
+            jar: jarIn.value,
+            args: argsIn.value,
+            actionOnFailure: actIn.value
+          })
+          state.emr.showAddStep = false
+          showFeedback(t('emrStepAdded', { ids: (r.stepIds || []).join(', ') }), 'ok')
+          await loadEmrDetail(d.id)
+          render()
+        } catch (e) { showFeedback(e.message, 'err') }
+        finally { submitBtn.disabled = false }
+      }
+    })
+    out.appendChild(el('div', { class: 'form-box' }, [
+      el('div', { class: 'field' }, [el('label', { text: t('emrStepName') }), nameIn]),
+      el('div', { class: 'field' }, [el('label', { text: 'JAR' }), jarIn]),
+      el('div', { class: 'field' }, [el('label', { text: t('emrStepArgs') }), argsIn]),
+      el('div', { class: 'field' }, [el('label', { text: t('emrStepAction') }), actIn]),
+      el('div', { class: 'toolbar' }, [submitBtn])
+    ]))
+  }
+
+  out.appendChild(el('div', { class: 'section-title', text: t('emrStepsTitle', { count: state.emr.steps.length }) }))
+  const sList = el('div', { class: 'list' })
+  for (const s of state.emr.steps) {
+    const canCancel = ['PENDING', 'RUNNING'].includes(s.state)
+    sList.appendChild(el('div', { class: 'row' }, [
+      el('div', { class: 'row-main' }, [
+        el('div', { class: 'row-title', text: s.name || s.id }),
+        el('div', { class: 'row-sub', text: `${s.id} · ${fmtDate(s.createdAt)}` }),
+        s.failureReason ? el('div', { class: 'row-sub', text: t('emrStepError', { reason: s.failureReason }) }) : null
+      ]),
+      el('div', { class: 'row-actions' }, [
+        el('span', { class: 'pill ' + stateTone(s.state), text: s.state }),
+        canCancel ? el('button', {
+          class: 'btn sm danger',
+          text: t('emrCancelStep'),
+          onclick: () => {
+            askConfirm(t('emrConfirmCancelStep', { name: s.name, id: s.id }), async () => {
+              try {
+                await req('emr.cancelStep', { clusterId: state.emr.selectedId, stepId: s.id })
+                showFeedback(t('emrStepCanceled', { id: s.id }), 'ok')
+                await loadEmrDetail(state.emr.selectedId)
+                render()
+              } catch (e) { showFeedback(e.message, 'err') }
+            })
+          }
+        }) : null
+      ])
+    ]))
+  }
+  if (!state.emr.steps.length && !state.loading) {
+    sList.appendChild(el('p', { class: 'muted', text: t('emrNoSteps') }))
+  }
+  out.appendChild(sList)
+}
+
+function renderSqs() {
+  renderSplit(
+    Boolean(state.sqs.selectedUrl),
+    () => {
+      const prefIn = el('input', {
+        placeholder: t('sqsFilterPh'),
+        value: state.sqs.prefix,
+        onkeydown: (e) => { if (e.key === 'Enter') { state.sqs.prefix = prefIn.value.trim(); loadTabData() } }
+      })
+      out.appendChild(el('div', { class: 'toolbar' }, [
+        prefIn,
+        el('button', { class: 'btn', text: t('sqsSearch'), onclick: () => { state.sqs.prefix = prefIn.value.trim(); loadTabData() } })
+      ]))
+
+      if (!state.sqs.queues.length && !state.loading) {
+        out.appendChild(el('p', { class: 'muted', text: t('sqsNoQueues') }))
+        return
+      }
+      const list = el('div', { class: 'list' })
+      for (const q of state.sqs.queues) {
+        list.appendChild(el('div', {
+          class: 'row clickable' + (state.sqs.selectedUrl === q.url ? ' active' : ''),
+          onclick: async () => {
+            state.loading = true; state.sqs.messages = []; render()
+            try { await loadSqsDetail(q.url) } catch (e) { showFeedback(e.message, 'err') }
+            finally { state.loading = false; render() }
+          }
+        }, [
+          el('div', { class: 'row-main' }, [
+            el('div', { class: 'row-title', text: q.name }),
+            el('div', { class: 'row-sub', text: q.url })
+          ]),
+          q.fifo ? el('span', { class: 'pill warn', text: 'FIFO' }) : null
+        ]))
+      }
+      out.appendChild(list)
+    },
+    () => {
+      renderSqsDetail()
+    },
+    t('sqsEmptyHint')
+  )
+}
+
+function renderSqsDetail() {
+
+  const a = state.sqs.attrs
+  out.appendChild(el('div', { class: 'crumbs' }, [
+    el('button', { text: t('sqsBack'), onclick: () => { state.sqs.selectedUrl = null; state.sqs.attrs = null; state.sqs.messages = []; loadTabData() } })
+  ]))
+
+  if (a) {
+    const dlqPart = a.dlqArn ? ' · DLQ: ' + a.dlqArn.split(':').pop() : ''
+    out.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'row-title', text: a.name }),
+      el('div', { class: 'row-sub', text: a.url }),
+      el('div', { class: 'grid-stats' }, [
+        el('div', { class: 'stat' }, [el('b', { text: a.visible }), el('span', { text: t('sqsVisible') })]),
+        el('div', { class: 'stat' }, [el('b', { text: a.notVisible }), el('span', { text: t('sqsInFlight') })]),
+        el('div', { class: 'stat' }, [el('b', { text: a.delayed }), el('span', { text: t('sqsDelayed') })])
+      ]),
+      el('div', { class: 'row-sub', text: t('sqsMeta', { vis: a.visibilityTimeout, ret: Math.round(a.retentionSeconds / 86400), dlq: dlqPart }) }),
+      el('div', { class: 'toolbar', style: 'margin-top:8px;margin-bottom:0' }, [
+        el('button', {
+          class: 'btn sm',
+          text: t('sqsPeek'),
+          onclick: async () => {
+            try {
+              const r = await req('sqs.peekMessages', { queueUrl: a.url, maxMessages: 10, visibilityTimeout: 0 })
+              state.sqs.messages = r.messages || []
+              if (!state.sqs.messages.length) showFeedback(t('sqsNoMessages'), 'ok')
+              else showFeedback('')
+              render()
+            } catch (e) { showFeedback(e.message, 'err') }
+          }
+        }),
+        el('button', {
+          class: 'btn sm primary',
+          text: state.sqs.showSend ? t('sqsCloseSend') : t('sqsSendBtn'),
+          onclick: () => { state.sqs.showSend = !state.sqs.showSend; render() }
+        }),
+        el('button', {
+          class: 'btn sm danger',
+          text: t('sqsPurge'),
+          onclick: () => {
+            askConfirm(t('sqsConfirmPurge', { name: a.name }), async () => {
+              try {
+                await req('sqs.purgeQueue', { queueUrl: a.url })
+                state.sqs.messages = []
+                showFeedback(t('sqsPurged', { name: a.name }), 'ok')
+                await loadSqsDetail(a.url)
+                render()
+              } catch (e) { showFeedback(e.message, 'err') }
+            })
+          }
+        })
+      ])
+    ]))
+  }
+
+  if (state.sqs.showSend && a) {
+    const bodyIn = el('textarea', { placeholder: '{"event": "test"}' })
+    const groupIn = el('input', { placeholder: t('sqsGroupPh') })
+    const dedupIn = el('input', { placeholder: t('sqsDedupPh') })
+    const delayIn = el('input', { type: 'number', min: '0', max: '900', placeholder: t('sqsDelayPh') })
+    const sendBtn = el('button', {
+      class: 'btn primary',
+      text: t('sqsSendSubmit'),
+      onclick: async () => {
+        sendBtn.disabled = true
+        try {
+          const r = await req('sqs.sendMessage', {
+            queueUrl: a.url,
+            body: bodyIn.value,
+            messageGroupId: a.fifo ? groupIn.value : '',
+            deduplicationId: a.fifo ? dedupIn.value : '',
+            delaySeconds: a.fifo ? '' : delayIn.value
+          })
+          state.sqs.showSend = false
+          showFeedback(t('sqsSent', { id: r.messageId }), 'ok')
+          await loadSqsDetail(a.url)
+          render()
+        } catch (e) { showFeedback(e.message, 'err') }
+        finally { sendBtn.disabled = false }
+      }
+    })
+    out.appendChild(el('div', { class: 'form-box' }, [
+      el('div', { class: 'field' }, [el('label', { text: t('sqsBodyLabel') }), bodyIn]),
+      a.fifo ? el('div', { class: 'field' }, [el('label', { text: 'MessageGroupId' }), groupIn]) : null,
+      a.fifo ? el('div', { class: 'field' }, [el('label', { text: 'MessageDeduplicationId' }), dedupIn]) : null,
+      !a.fifo ? el('div', { class: 'field' }, [el('label', { text: t('sqsDelayLabel') }), delayIn]) : null,
+      el('div', { class: 'toolbar' }, [sendBtn])
+    ]))
+  }
+
+  if (state.sqs.messages.length) {
+    out.appendChild(el('div', { class: 'section-title', text: t('sqsMessagesTitle', { count: state.sqs.messages.length }) }))
+    const mList = el('div', { class: 'list' })
+    for (const m of state.sqs.messages) {
+      let pretty = m.body
+      try { pretty = JSON.stringify(JSON.parse(m.body), null, 2) } catch {}
+      const groupPart = m.messageGroupId ? t('sqsMsgGroup', { group: m.messageGroupId }) : ''
+      mList.appendChild(el('div', { class: 'card' }, [
+        el('div', { class: 'toolbar', style: 'margin-bottom:4px' }, [
+          el('div', { class: 'row-main' }, [
+            el('div', { class: 'row-title', text: m.messageId }),
+            el('div', { class: 'row-sub', text: t('sqsMsgMeta', { date: fmtDate(m.sentAt), rc: m.receiveCount || '-', group: groupPart }) })
+          ]),
+          el('button', {
+            class: 'btn sm danger',
+            text: t('s3Delete'),
+            onclick: () => {
+              askConfirm(t('sqsConfirmDeleteMsg', { id: m.messageId }), async () => {
+                try {
+                  await req('sqs.deleteMessage', { queueUrl: state.sqs.selectedUrl, receiptHandle: m.receiptHandle })
+                  state.sqs.messages = state.sqs.messages.filter((x) => x.messageId !== m.messageId)
+                  showFeedback(t('sqsDeletedMsg', { id: m.messageId }), 'ok')
+                  await loadSqsDetail(state.sqs.selectedUrl)
+                  render()
+                } catch (e) { showFeedback(e.message, 'err') }
+              })
+            }
+          })
+        ]),
+        el('div', { class: 'code-box', text: pretty })
+      ]))
+    }
+    out.appendChild(mList)
+  }
+}
+
+if (window.orca && orca.document && typeof orca.document.onDidChange === 'function') {
+  orca.document.onDidChange((doc) => {
+    orca.plugin.request('ui.log', { msg: `document.onDidChange v=${doc && doc.version}` }).catch(() => {})
+  })
+}
+window.addEventListener('beforeunload', () => {
+  orca.plugin.request('ui.log', { msg: 'frame beforeunload' }).catch(() => {})
+})
+window.addEventListener('error', (e) => {
+  orca.plugin.request('ui.log', { msg: `frame error: ${e.message}` }).catch(() => {})
+})
+
+async function initLanguage() {
+  try {
+    if (window.orca && orca.settings && typeof orca.settings.get === 'function') {
+      const saved = await orca.settings.get('language')
+      state.lang = resolveLang(saved)
+      if (typeof orca.settings.onDidChange === 'function') {
+        orca.settings.onDidChange((ev) => {
+          if (!ev || ev.key === 'language') {
+            orca.settings.get('language').then((v) => {
+              state.lang = resolveLang(v)
+              applyStaticI18n()
+              render()
+            }).catch(() => {})
+          }
+        })
+      }
+    }
+  } catch { /* ignore */ }
+  applyStaticI18n()
+}
+
+;(async () => {
+  await initLanguage()
+  await restoreUiState()
+  await checkStatus(true)
+})()
+</script>
+</body>
+</html>

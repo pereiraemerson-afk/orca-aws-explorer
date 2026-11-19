@@ -1,0 +1,132 @@
+{
+  "manifestVersion": 2,
+  "id": "aws-explorer",
+  "name": "AWS Explorer",
+  "version": "1.0.0",
+  "description": "Browse and run actions on AWS S3, EMR, and SQS using your local authenticated AWS CLI (no credentials stored in the plugin).",
+  "author": {
+    "name": "Emerson Pereira",
+    "url": "https://github.com/pereiraemerson-afk"
+  },
+  "repository": "https://github.com/pereiraemerson-afk/orca-aws-explorer",
+  "homepage": "https://github.com/pereiraemerson-afk/orca-aws-explorer",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "customEditors": [
+      {
+        "id": "aws-console",
+        "title": "AWS Explorer",
+        "extensions": [
+          ".aws-explorer"
+        ],
+        "entry": "panel/index.html",
+        "priority": "default"
+      }
+    ],
+    "newFiles": [
+      {
+        "id": "new-aws-console",
+        "title": "AWS Explorer",
+        "extension": ".aws-explorer"
+      }
+    ],
+    "settings": [
+      {
+        "key": "awsBin",
+        "title": "AWS CLI command",
+        "description": "Binary path or command used to invoke the AWS CLI (e.g. aws, C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe, or uvx --from awscli aws).",
+        "type": "string",
+        "default": "aws",
+        "placeholder": "aws"
+      },
+      {
+        "key": "runInWsl",
+        "title": "Run AWS CLI inside WSL",
+        "description": "When enabled on Windows, runs commands via wsl.exe -- <awsBin> to use the WSL AWS CLI and credentials.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "defaultProfile",
+        "title": "Default profile (--profile)",
+        "description": "Initial AWS CLI profile when opening the explorer. Leave empty to use the AWS CLI default.",
+        "type": "string",
+        "default": "",
+        "placeholder": "default"
+      },
+      {
+        "key": "defaultRegion",
+        "title": "Default region (--region)",
+        "description": "Initial AWS region (e.g. us-east-1, sa-east-1). Leave empty to use the profile region.",
+        "type": "string",
+        "default": "",
+        "placeholder": "us-east-1"
+      },
+      {
+        "key": "timeoutSeconds",
+        "title": "Command timeout (seconds)",
+        "description": "Maximum wait time per AWS CLI command.",
+        "type": "integer",
+        "default": 30,
+        "minimum": 5,
+        "maximum": 180
+      },
+      {
+        "key": "language",
+        "title": "Language / Idioma",
+        "description": "UI language for AWS Explorer (auto follows Orca's locale).",
+        "type": "string",
+        "default": "auto",
+        "enum": [
+          "auto",
+          "en",
+          "pt-BR"
+        ],
+        "enumLabels": [
+          "Auto (Orca)",
+          "English",
+          "Português (Brasil)"
+        ]
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "settings:own"
+    },
+    {
+      "kind": "notifications:show"
+    }
+  ],
+  "cover": {
+    "path": "media/screenshot-s3.png",
+    "alt": "AWS Explorer inside Orca browsing S3 buckets and previewing a JSON object."
+  },
+  "screenshots": [
+    {
+      "path": "media/screenshot-s3.png",
+      "alt": "S3 bucket list on the left and prefix browser with JSON object preview, presigned URL, upload, and delete actions on the right.",
+      "caption": "S3: browse buckets and prefixes, preview/save text & JSON, presign, upload, and delete.",
+      "theme": "dark"
+    },
+    {
+      "path": "media/screenshot-emr.png",
+      "alt": "EMR clusters list on the left and cluster details with Spark steps and step actions on the right.",
+      "caption": "EMR: monitor clusters and steps, submit new steps, cancel running steps, or terminate clusters.",
+      "theme": "dark"
+    },
+    {
+      "path": "media/screenshot-sqs.png",
+      "alt": "SQS queues list on the left and FIFO queue counters with peeked JSON messages on the right.",
+      "caption": "SQS: inspect queue counts, peek messages without hiding them, send Standard/FIFO messages, and purge.",
+      "theme": "dark"
+    }
+  ]
+}
