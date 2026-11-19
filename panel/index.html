@@ -650,7 +650,7 @@ $('confirm-yes').addEventListener('click', async () => {
 })
 
 async function req(name, input = {}) {
-  const payload = { ...input }
+  const payload = { ...input, lang: state.lang }
   if (state.profile) payload.profile = state.profile
   if (state.region) payload.region = state.region
   return await orca.plugin.request(name, payload)
@@ -753,6 +753,7 @@ async function setLanguage(lang) {
       await orca.settings.set('language', state.lang)
     }
   } catch { /* ignore */ }
+  if (!state.connected) checkStatus(false, true)
 }
 
 $('btn-lang').addEventListener('click', () => {

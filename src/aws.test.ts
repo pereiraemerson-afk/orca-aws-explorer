@@ -1,5 +1,5 @@
 import { assert, test } from 'orca/testing'
-import { buildAwsCommand, classifyCliError } from './cli'
+import { buildAwsCommand, classifyCliError, friendlyError } from './cli'
 import {
   buildEmrStepPayload,
   parseCallerIdentity,
@@ -56,6 +56,11 @@ test('classifyCliError identifica ENOENT, SSO expirado, AccessDenied e timeout',
   assert.equal(classifyCliError('An error occurred (AccessDenied) when calling ListObjectsV2'), 'access_denied')
   assert.equal(classifyCliError('', null, true), 'timeout')
   assert.equal(classifyCliError('Unknown options: --foo'), 'cli')
+
+  const enMsg = friendlyError('not_found', '', { awsBin: 'aws', runInWsl: false, timeoutMs: 30_000, lang: 'en' })
+  const ptMsg = friendlyError('not_found', '', { awsBin: 'aws', runInWsl: false, timeoutMs: 30_000, lang: 'pt-BR' })
+  assert.ok(enMsg.includes('AWS CLI not found'))
+  assert.ok(ptMsg.includes('AWS CLI não encontrado'))
 })
 
 test('parseProfiles, parseCallerIdentity e parseCliVersion', () => {

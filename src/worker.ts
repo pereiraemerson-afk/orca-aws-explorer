@@ -13,15 +13,20 @@ import {
   parseSqsAttributes,
   parseSqsMessages,
   parseSqsQueues,
+  resolveLanguage,
   splitArgs
 } from './parse'
 import type { AwsCliConfig, AwsContextInput, AwsStatusResult } from './protocol'
 
 const MAX_PREVIEW_BYTES = 256 * 1024
 
-function requireNonEmpty(value: unknown, label: string): string {
+function msg(lang: 'pt-BR' | 'en', pt: string, en: string): string {
+  return lang === 'pt-BR' ? pt : en
+}
+
+function requireNonEmpty(value: unknown, label: string, lang: 'pt-BR' | 'en' = 'en'): string {
   const s = typeof value === 'string' ? value.trim() : ''
-  if (!s) throw new Error(`Campo obrigatório ausente: ${label}`)
+  if (!s) throw new Error(msg(lang, `Campo obrigatório ausente: ${label}`, `Missing required field: ${label}`))
   return s
 }
 
@@ -31,7 +36,7 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
   return Math.max(min, Math.min(max, Math.trunc(n)))
 }
 
-async function readConfig(orca: OrcaWorkerApi): Promise<AwsCliConfig> {
+async function readConfig(orca: OrcaWorkerApi, inputLang?: unknown): Promise<AwsCliConfig> {
   const get = async <T>(key: string, fallback: T): Promise<T> => {
     try {
       const v = await orca.settings.get(key)
@@ -45,7 +50,9 @@ async function readConfig(orca: OrcaWorkerApi): Promise<AwsCliConfig> {
   const defaultProfile = String(await get('defaultProfile', '')).trim()
   const defaultRegion = String(await get('defaultRegion', '')).trim()
   const timeoutSeconds = clampInt(await get('timeoutSeconds', 30), 30, 5, 180)
-  return { awsBin, runInWsl, defaultProfile, defaultRegion, timeoutMs: timeoutSeconds * 1000 }
+  const langSetting = await get('language', 'auto')
+  const lang = inputLang === 'pt-BR' || inputLang === 'en' ? inputLang : resolveLanguage(langSetting)
+  return { awsBin, runInWsl, defaultProfile, defaultRegion, timeoutMs: timeoutSeconds * 1000, lang }
 }
 
 function resolveContext(input: AwsContextInput | undefined, cfg: AwsCliConfig): { profile: string; region: string } {
@@ -122,7 +129,7 @@ export default function activate(orca: OrcaWorkerApi) {
     fn: (cfg: AwsCliConfig, ctx: { profile: string; region: string }, inp: Record<string, any>) => Promise<T>
   ): Promise<T> {
     const inp = (rawInput && typeof rawInput === 'object' ? rawInput : {}) as Record<string, any>
-    const cfg = await readConfig(orca)
+    const cfg = await readConfig(orca, inp.lang)
     const ctx = resolveContext(inp, cfg)
     return fn(cfg, ctx, inp)
   }
@@ -185,14 +192,18 @@ export default function activate(orca: OrcaWorkerApi) {
     withCfg(input, async (cfg, ctx) => {
       const ver = await detectVersion(cfg)
       if (!ver.supportsSso) {
+        const detected = ver.version ? 'v' + ver.version : 'v1'
         throw new Error(
-          `SSO Login requer AWS CLI v2 (detectado ${ver.version ? 'v' + ver.version : 'v1'}). ` +
-          'O comando `uvx --from awscli aws` instala a v1, que não tem `aws sso login`.'
+          msg(
+            cfg.lang,
+            `SSO Login requer AWS CLI v2 (detectado ${detected}). O comando \`uvx --from awscli aws\` instala a v1, que não tem \`aws sso login\`.`,
+            `SSO Login requires AWS CLI v2 (detected ${detected}). \`uvx --from awscli aws\` installs v1, which does not include \`aws sso login\`.`
+          )
         )
       }
       const out = await runAwsRaw(cfg, ['sso', 'login'], ctx, { output: 'none', timeoutMs: 120_000 })
       statusCache.clear()
-      await notify(orca, 'AWS SSO Login', `Login concluído (${ctx.profile || 'default'}).`)
+      await notify(orca, 'AWS SSO Login', msg(cfg.lang, `Login concluído (${ctx.profile || 'default'}).`, `Login complete (${ctx.profile || 'default'}).`))
       return { ok: true, output: out.trim() }
     })
   )
@@ -265,7 +276,13 @@ export default function activate(orca: OrcaWorkerApi) {
       const head = await runAwsJson<Record<string, any>>(cfg, ['s3api', 'head-object', '--bucket', bucket, '--key', key], ctx)
       const size = Number(head?.ContentLength ?? 0)
       if (size > MAX_PREVIEW_BYTES) {
-        throw new Error(`Objeto tem ${Math.round(size / 1024)} KB (limite de preview: ${MAX_PREVIEW_BYTES / 1024} KB). Gere uma URL assinada para baixar.`)
+        throw new Error(
+          msg(
+            cfg.lang,
+            `Objeto tem ${Math.round(size / 1024)} KB (limite de preview: ${MAX_PREVIEW_BYTES / 1024} KB). Gere uma URL assinada para baixar.`,
+            `Object is ${Math.round(size / 1024)} KB (preview limit: ${MAX_PREVIEW_BYTES / 1024} KB). Generate a presigned URL to download.`
+          )
+        )
       }
       const content = await runAwsRaw(cfg, ['s3', 'cp', `s3://${bucket}/${key}`, '-'], ctx, {
         output: 'none',
@@ -335,7 +352,9 @@ export default function activate(orca: OrcaWorkerApi) {
       const name = requireNonEmpty(inp.name, 'name')
       const jar = typeof inp.jar === 'string' && inp.jar.trim() ? inp.jar.trim() : 'command-runner.jar'
       const rawArgs = typeof inp.args === 'string' ? splitArgs(inp.args) : Array.isArray(inp.args) ? inp.args.map(String) : []
-      if (rawArgs.length === 0) throw new Error('Informe os argumentos do step (ex.: spark-submit s3://...).')
+      if (rawArgs.length === 0) {
+        throw new Error(msg(cfg.lang, 'Informe os argumentos do step (ex.: spark-submit s3://...).', 'Enter step arguments (e.g. spark-submit s3://...).'))
+      }
       const actionOnFailure = typeof inp.actionOnFailure === 'string' && inp.actionOnFailure ? inp.actionOnFailure : 'CONTINUE'
       const stepsJson = buildEmrStepPayload({ name, jar, args: rawArgs, actionOnFailure })
       const raw = await runAwsJson<{ StepIds?: string[] }>(cfg, ['emr', 'add-steps', '--cluster-id', clusterId, '--steps', stepsJson], ctx)

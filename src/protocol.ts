@@ -1,6 +1,7 @@
 export interface AwsContextInput {
   profile?: string
   region?: string
+  lang?: 'pt-BR' | 'en'
 }
 
 export interface AwsCliConfig {
@@ -9,6 +10,7 @@ export interface AwsCliConfig {
   defaultProfile: string
   defaultRegion: string
   timeoutMs: number
+  lang: 'pt-BR' | 'en'
 }
 
 export interface CallerIdentity {

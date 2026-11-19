@@ -131,7 +131,8 @@ export async function runAwsJson<T = unknown>(
   try {
     return JSON.parse(trimmed) as T
   } catch {
-    throw new AwsCliError(`Saída inválida do AWS CLI: ${trimmed.slice(0, 200)}`, 'cli', trimmed)
+    const prefix = config.lang === 'pt-BR' ? 'Saída inválida do AWS CLI' : 'Invalid AWS CLI output'
+    throw new AwsCliError(`${prefix}: ${trimmed.slice(0, 200)}`, 'cli', trimmed)
   }
 }
 
@@ -159,7 +160,7 @@ export function runAwsWithStdin(
       if (settled) return
       settled = true
       child.kill()
-      reject(new AwsCliError(friendlyError('timeout', 'Timeout excedido', config), 'timeout', stderr, 'ETIMEDOUT'))
+      reject(new AwsCliError(friendlyError('timeout', 'Timeout exceeded', config), 'timeout', stderr, 'ETIMEDOUT'))
     }, timeout)
 
     child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8') })
@@ -176,7 +177,8 @@ export function runAwsWithStdin(
       settled = true
       clearTimeout(timer)
       if (code !== 0) {
-        const msg = stderr.trim() || `AWS CLI saiu com código ${code}`
+        const fallback = config.lang === 'pt-BR' ? `AWS CLI saiu com código ${code}` : `AWS CLI exited with code ${code}`
+        const msg = stderr.trim() || fallback
         const kind = classifyCliError(msg, code)
         reject(new AwsCliError(friendlyError(kind, msg, config), kind, msg, code))
         return
@@ -188,20 +190,31 @@ export function runAwsWithStdin(
   })
 }
 
-function friendlyError(kind: CliErrorKind, raw: string, config: AwsCliConfig): string {
+/** Formats a user-facing AWS CLI error message in the active language (`pt-BR` or `en`). */
+export function friendlyError(kind: CliErrorKind, raw: string, config: Pick<AwsCliConfig, 'awsBin' | 'runInWsl' | 'timeoutMs' | 'lang'>): string {
+  const pt = config.lang === 'pt-BR'
   const compact = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3).join(' — ')
   if (kind === 'not_found') {
     const target = config.runInWsl ? `WSL (${config.awsBin})` : config.awsBin
-    return `AWS CLI não encontrado em ${target}. Ajuste "Executável do AWS CLI" ou "Executar no WSL" em Settings.`
+    return pt
+      ? `AWS CLI não encontrado em ${target}. Ajuste "AWS CLI command" ou "Run AWS CLI inside WSL" em Settings.`
+      : `AWS CLI not found at ${target}. Check "AWS CLI command" or "Run AWS CLI inside WSL" in Settings.`
   }
   if (kind === 'timeout') {
-    return `Timeout ao aguardar o AWS CLI (${Math.round(config.timeoutMs / 1000)}s).`
+    const secs = Math.round(config.timeoutMs / 1000)
+    return pt
+      ? `Timeout ao aguardar o AWS CLI (${secs}s).`
+      : `Timed out waiting for AWS CLI (${secs}s).`
   }
   if (kind === 'auth') {
-    return `Sessão AWS ausente ou expirada. Faça login (SSO/credenciais) e atualize. Detalhe: ${compact}`
+    return pt
+      ? `Sessão AWS ausente ou expirada. Faça login (SSO/credenciais) e atualize. Detalhe: ${compact}`
+      : `AWS session missing or expired. Sign in (SSO/credentials) and refresh. Detail: ${compact}`
   }
   if (kind === 'access_denied') {
-    return `Acesso negado pela AWS (IAM): ${compact}`
+    return pt
+      ? `Acesso negado pela AWS (IAM): ${compact}`
+      : `Access denied by AWS (IAM): ${compact}`
   }
-  return compact || 'Erro ao executar comando do AWS CLI.'
+  return compact || (pt ? 'Erro ao executar comando do AWS CLI.' : 'Failed to run AWS CLI command.')
 }

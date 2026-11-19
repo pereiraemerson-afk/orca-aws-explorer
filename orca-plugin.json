@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "aws-explorer",
   "name": "AWS Explorer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Browse and run actions on AWS S3, EMR, and SQS using your local authenticated AWS CLI (no credentials stored in the plugin).",
   "author": {
     "name": "Emerson Pereira",
